@@ -9,7 +9,7 @@ using System.Data.SqlClient;
 /// <summary>
 /// 数据库连接器
 /// </summary>
-public class SqlConnector :IDisposable
+public class SqlServerConnector : IDisposable
 {
 
     #region 字段
@@ -18,11 +18,7 @@ public class SqlConnector :IDisposable
     /// 数据库连接
     /// </summary>
     private SqlConnection conn = null;
-    /// <summary>
-    /// 事务
-    /// </summary>
-    public SqlTransaction tran = null;
-
+    
     #endregion
 
     #region 属性
@@ -44,7 +40,7 @@ public class SqlConnector :IDisposable
     /// <summary>
     /// 构造函数
     /// </summary>
-    public SqlConnector()
+    public SqlServerConnector()
     {
         string ConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["defaultDB"].ConnectionString;
         conn = new SqlConnection(ConnectionString);
@@ -55,7 +51,7 @@ public class SqlConnector :IDisposable
     /// 构造函数
     /// </summary>
     /// <param name="ConnectionString">数据库连接字符串</param>
-    public SqlConnector(string ConnectionString)
+    public SqlServerConnector(string ConnectionString)
     {
         conn = new SqlConnection(ConnectionString);
         conn.Open();
@@ -82,38 +78,8 @@ public class SqlConnector :IDisposable
     }
 
     #endregion
-    
+
     #region SqlCommand
-
-    /// <summary>
-    /// 创建数据库命令
-    /// </summary>
-    /// <param name="CommandTimeout">超时时间。以秒为单位</param>
-    /// <returns></returns>
-    public SqlCommand CreateSqlCommand(int CommandTimeout=60)
-    {
-        SqlCommand _SqlCommand = new SqlCommand();
-        _SqlCommand.Connection = conn;
-        //以秒为单位
-        _SqlCommand.CommandTimeout = CommandTimeout;
-        return _SqlCommand;
-    }
-
-    /// <summary>
-    /// 创建数据库命令
-    /// </summary>
-    /// <param name="SQL">sql语句</param>
-    /// <param name="CommandTimeout">超时时间。以秒为单位</param>
-    /// <returns></returns>
-    public SqlCommand CreateSqlCommand(string SQL, int CommandTimeout = 60)
-    {
-        SqlCommand _SqlCommand = new SqlCommand();
-        _SqlCommand.Connection = conn;
-        _SqlCommand.CommandText = SQL;
-        //以秒为单位
-        _SqlCommand.CommandTimeout = CommandTimeout;
-        return _SqlCommand;
-    }
 
     /// <summary>
     /// 创建数据库命令
@@ -122,20 +88,49 @@ public class SqlConnector :IDisposable
     /// <param name="pars">sql参数</param>
     /// <param name="CommandTimeout">超时时间。以秒为单位</param>
     /// <returns></returns>
-    public SqlCommand CreateSqlCommand(string SQL,SqlParameter[] pars, int CommandTimeout = 60)
+    public SqlCommand CreateSqlCommand(string SQL, SqlParameter[] pars, CommandType cmdType, int CommandTimeout = 60)
     {
         SqlCommand _SqlCommand = new SqlCommand();
         _SqlCommand.Connection = conn;
-        _SqlCommand.CommandText = SQL;
+        _SqlCommand.CommandType = cmdType;
+
+        if (!string.IsNullOrEmpty(SQL))
+        {
+            _SqlCommand.CommandText = SQL;
+        }
         //以秒为单位
         _SqlCommand.CommandTimeout = CommandTimeout;
 
         _SqlCommand.Parameters.Clear();
-        if (pars != null && pars.Length > 0) {
+        if (pars != null && pars.Length > 0)
+        {
             _SqlCommand.Parameters.AddRange(pars);
         }
         return _SqlCommand;
     }
+
+    /// <summary>
+    /// 创建数据库命令
+    /// </summary>
+    /// <param name="SQL">sql语句</param>
+    /// <param name="CommandTimeout">超时时间。以秒为单位</param>
+    /// <returns></returns>
+    public SqlCommand CreateSqlCommand(string SQL, CommandType cmdType, int CommandTimeout = 60)
+    {
+        return CreateSqlCommand(SQL, null, cmdType, CommandTimeout);
+    }
+
+    /// <summary>
+    /// 创建数据库命令
+    /// </summary>
+    /// <param name="CommandTimeout">超时时间。以秒为单位</param>
+    /// <returns></returns>
+    public SqlCommand CreateSqlCommand(CommandType cmdType,int CommandTimeout = 60)
+    {
+        return CreateSqlCommand(null, null, cmdType, CommandTimeout);
+    }
+
+    
 
     #endregion
 
@@ -151,16 +146,9 @@ public class SqlConnector :IDisposable
     /// <returns></returns>
     public int ExecuteNonQuery(string sql, SqlParameter[] parameters, CommandType cmdType)
     {
-        SqlCommand _SqlCommand = CreateSqlCommand();
+        SqlCommand _SqlCommand = CreateSqlCommand(sql, parameters, cmdType);
         try
         {
-            _SqlCommand.CommandText = sql;
-            _SqlCommand.CommandType = cmdType;
-            _SqlCommand.Parameters.Clear();
-            if (parameters != null && parameters.Length > 0)
-            {
-                _SqlCommand.Parameters.AddRange(parameters);
-            }
             return _SqlCommand.ExecuteNonQuery();
         }
         catch (Exception ex)
@@ -203,16 +191,9 @@ public class SqlConnector :IDisposable
     /// <returns></returns>
     public SqlDataReader ExecuteReader(string sql, SqlParameter[] parameters, CommandType cmdType)
     {
-        SqlCommand _SqlCommand = CreateSqlCommand();
+        SqlCommand _SqlCommand = CreateSqlCommand(sql, parameters, cmdType);
         try
         {
-            _SqlCommand.CommandText = sql;
-            _SqlCommand.CommandType = cmdType;
-            _SqlCommand.Parameters.Clear();
-            if (parameters != null && parameters.Length > 0)
-            {
-                _SqlCommand.Parameters.AddRange(parameters);
-            }
             return _SqlCommand.ExecuteReader();
         }
         catch (Exception ex)
@@ -255,17 +236,9 @@ public class SqlConnector :IDisposable
     /// <returns>返回查询所返回的结果集中的第一行第一列</returns>
     public object ExecuteScalar(string sql, SqlParameter[] parameters, CommandType cmdType)
     {
-        SqlCommand _SqlCommand = CreateSqlCommand();
+        SqlCommand _SqlCommand = CreateSqlCommand(sql, parameters, cmdType);
         try
         {
-            _SqlCommand.CommandText = sql;
-            _SqlCommand.CommandType = cmdType;
-            _SqlCommand.Parameters.Clear();
-            if (parameters != null && parameters.Length > 0)
-            {
-                _SqlCommand.Parameters.AddRange(parameters);
-            }
-
             return _SqlCommand.ExecuteScalar();
         }
         catch (Exception ex)
@@ -313,17 +286,9 @@ public class SqlConnector :IDisposable
     /// <returns></returns>
     public DataTable ExecuteDataTable(string sql, SqlParameter[] parameters, CommandType cmdType)
     {
-        SqlCommand _SqlCommand = CreateSqlCommand();
+        SqlCommand _SqlCommand = CreateSqlCommand(sql, parameters, cmdType);
         try
         {
-            _SqlCommand.CommandText = sql;
-            _SqlCommand.CommandType = cmdType;
-            _SqlCommand.Parameters.Clear();
-            if (parameters != null && parameters.Length > 0)
-            {
-                _SqlCommand.Parameters.AddRange(parameters);
-            }
-
             using (DataTable dt = new DataTable())
             {
                 SqlDataAdapter sda = new SqlDataAdapter(_SqlCommand);
@@ -373,17 +338,9 @@ public class SqlConnector :IDisposable
     /// <returns></returns>
     public DataSet ExecuteDataSet(string sql, SqlParameter[] parameters, CommandType cmdType)
     {
-        SqlCommand _SqlCommand = CreateSqlCommand();
+        SqlCommand _SqlCommand = CreateSqlCommand(sql,parameters, cmdType);
         try
         {
-            _SqlCommand.CommandText = sql;
-            _SqlCommand.CommandType = cmdType;
-            _SqlCommand.Parameters.Clear();
-            if (parameters != null && parameters.Length > 0)
-            {
-                _SqlCommand.Parameters.AddRange(parameters);
-            }
-
             SqlDataAdapter sda = new SqlDataAdapter(_SqlCommand);
             using (DataSet ds = new DataSet())
             {
@@ -427,57 +384,6 @@ public class SqlConnector :IDisposable
 
 
     #endregion
-
-
-    #region 事务
-
-    /// <summary>
-    /// 开始事务
-    /// </summary>
-    public void BeginTransaction()
-    {
-        tran = conn.BeginTransaction();
-    }
-
-    /// <summary>
-    /// 开始事务
-    /// </summary>
-    /// <param name="level"></param>
-    public void BeginTransaction(IsolationLevel level = IsolationLevel.ReadCommitted)
-    {
-        tran = conn.BeginTransaction(level);
-    }
-
-    /// <summary>
-    /// 提交事务
-    /// </summary>
-    public void CommitTransaction()
-    {
-        tran.Commit();
-    }
-
-    /// <summary>
-    /// 回滚事务
-    /// </summary>
-    public void RollbackTransaction()
-    {
-        tran.Rollback();
-    }
-
-    /// <summary>
-    /// 清除事务
-    /// </summary>
-    public void ClearTransaction()
-    {
-        if (tran != null)
-        {
-            tran.Dispose();
-            tran = null;
-        }
-    }
-
-    #endregion
-
     
     #region IDisposable Support
 
@@ -495,12 +401,7 @@ public class SqlConnector :IDisposable
                     conn.Close();
                     conn.Dispose();
                 }
-
-                if (tran != null)
-                {
-                    tran.Dispose();
-                    tran = null;
-                }
+                
             }
 
             // TODO: 释放未托管的资源(未托管的对象)并在以下内容中替代终结器。
