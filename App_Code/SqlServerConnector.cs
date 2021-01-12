@@ -18,7 +18,7 @@ public class SqlServerConnector : IDisposable
     /// 数据库连接
     /// </summary>
     private SqlConnection conn = null;
-    
+
     #endregion
 
     #region 属性
@@ -26,15 +26,32 @@ public class SqlServerConnector : IDisposable
     /// <summary>
     /// 数据库连接
     /// </summary>
-    public SqlConnection SqlConnection {
-        get {
+    public SqlConnection SqlConnection
+    {
+        get
+        {
+            if (conn == null)
+            {
+                throw new Exception("数据库连接对象为 null ");
+            }
+
+            if (conn.State == ConnectionState.Closed)
+            {
+                conn.Open();
+            }
+            else if (conn.State == ConnectionState.Broken)
+            {
+                conn.Close();
+                conn.Open();
+            }
+
             return conn;
         }
     }
 
 
     #endregion
-    
+
     #region 构造函数
 
     /// <summary>
@@ -58,23 +75,65 @@ public class SqlServerConnector : IDisposable
     }
 
     #endregion
-    
-    #region SqlConnection
+
+    #region 析构函数
 
     /// <summary>
-    /// 
+    /// 析构函数。拥有用于释放未托管资源的代码时才替代终结器。
     /// </summary>
-    public void CloseConnection()
+    ~SqlServerConnector()
     {
-        conn.Close();
+        Dispose(false);// 释放非托管资源
+    }
+
+    #endregion
+
+    #region 数据库连接管理
+
+    /// <summary>
+    /// 创建数据库连接
+    /// </summary>
+    /// <param name="ConnectionString">数据库连接字符串</param>
+    public void CreateSqlConnection(string ConnectionString)
+    {
+        if (conn != null && conn.State != ConnectionState.Closed)
+        {
+            conn.Close();
+        }
+        conn = new SqlConnection(ConnectionString);
+        conn.Open();
     }
 
     /// <summary>
-    /// 
+    /// 关闭数据库连接
+    /// </summary>
+    public void CloseConnection()
+    {
+        if (conn != null && conn.State != ConnectionState.Closed)
+        {
+            conn.Close();
+        }
+    }
+
+    /// <summary>
+    /// 打开数据库连接
     /// </summary>
     public void OpenConnection()
     {
-        conn.Open();
+        if (conn == null)
+        {
+            throw new Exception("数据库连接对象为 null ");
+        }
+
+        if (conn.State == ConnectionState.Closed)
+        {
+            conn.Open();
+        }
+        else if (conn.State == ConnectionState.Broken)
+        {
+            conn.Close();
+            conn.Open();
+        }
     }
 
     #endregion
@@ -91,7 +150,7 @@ public class SqlServerConnector : IDisposable
     public SqlCommand CreateSqlCommand(string SQL, SqlParameter[] pars, CommandType cmdType, int CommandTimeout = 60)
     {
         SqlCommand _SqlCommand = new SqlCommand();
-        _SqlCommand.Connection = conn;
+        _SqlCommand.Connection = SqlConnection;
         _SqlCommand.CommandType = cmdType;
 
         if (!string.IsNullOrEmpty(SQL))
@@ -125,12 +184,12 @@ public class SqlServerConnector : IDisposable
     /// </summary>
     /// <param name="CommandTimeout">超时时间。以秒为单位</param>
     /// <returns></returns>
-    public SqlCommand CreateSqlCommand(CommandType cmdType,int CommandTimeout = 60)
+    public SqlCommand CreateSqlCommand(CommandType cmdType, int CommandTimeout = 60)
     {
         return CreateSqlCommand(null, null, cmdType, CommandTimeout);
     }
 
-    
+
 
     #endregion
 
@@ -181,7 +240,7 @@ public class SqlServerConnector : IDisposable
     {
         return ExecuteNonQuery(sql, null, CommandType.Text);
     }
-    
+
     /// <summary>
     /// 执行SQL语句或存储过程
     /// </summary>
@@ -259,7 +318,7 @@ public class SqlServerConnector : IDisposable
     /// <returns>返回查询所返回的结果集中的第一行第一列</returns>
     public object ExecuteScalar(string sql, SqlParameter[] parameters)
     {
-        return ExecuteScalar(sql, parameters,CommandType.Text);
+        return ExecuteScalar(sql, parameters, CommandType.Text);
     }
 
     /// <summary>
@@ -317,7 +376,7 @@ public class SqlServerConnector : IDisposable
     /// <param name="parameters">参数</param>
     public DataTable ExecuteDataTable(string sql, SqlParameter[] parameters)
     {
-        return ExecuteDataTable(sql, parameters,CommandType.Text);
+        return ExecuteDataTable(sql, parameters, CommandType.Text);
     }
 
     /// <summary>
@@ -338,7 +397,7 @@ public class SqlServerConnector : IDisposable
     /// <returns></returns>
     public DataSet ExecuteDataSet(string sql, SqlParameter[] parameters, CommandType cmdType)
     {
-        SqlCommand _SqlCommand = CreateSqlCommand(sql,parameters, cmdType);
+        SqlCommand _SqlCommand = CreateSqlCommand(sql, parameters, cmdType);
         try
         {
             SqlDataAdapter sda = new SqlDataAdapter(_SqlCommand);
@@ -369,7 +428,7 @@ public class SqlServerConnector : IDisposable
     /// <returns></returns>
     public DataSet ExecuteDataSet(string sql, SqlParameter[] parameters)
     {
-        return ExecuteDataSet(sql, parameters,CommandType.Text);
+        return ExecuteDataSet(sql, parameters, CommandType.Text);
     }
 
     /// <summary>
@@ -384,7 +443,7 @@ public class SqlServerConnector : IDisposable
 
 
     #endregion
-    
+
     #region IDisposable Support
 
     private bool disposedValue = false; // 要检测冗余调用
@@ -393,15 +452,16 @@ public class SqlServerConnector : IDisposable
     {
         if (!disposedValue)
         {
-            if (disposing)
-            {
-                // TODO: 释放托管状态(托管对象)。
+            //if (disposing)
+            //{
+            //    // TODO: 释放托管状态(托管对象)。
+            //}
 
-                if (conn != null) {
-                    conn.Close();
-                    conn.Dispose();
-                }
-                
+            //释放数据库连接对象
+            if (conn != null)
+            {
+                conn.Close();
+                conn.Dispose();
             }
 
             // TODO: 释放未托管的资源(未托管的对象)并在以下内容中替代终结器。
@@ -411,19 +471,10 @@ public class SqlServerConnector : IDisposable
         }
     }
 
-    // TODO: 仅当以上 Dispose(bool disposing) 拥有用于释放未托管资源的代码时才替代终结器。
-    // ~SqlConnector() {
-    //   // 请勿更改此代码。将清理代码放入以上 Dispose(bool disposing) 中。
-    //   Dispose(false);
-    // }
-
     // 添加此代码以正确实现可处置模式。
     void IDisposable.Dispose()
     {
-        // 请勿更改此代码。将清理代码放入以上 Dispose(bool disposing) 中。
         Dispose(true);
-        // TODO: 如果在以上内容中替代了终结器，则取消注释以下行。
-        // GC.SuppressFinalize(this);
     }
     #endregion
 
